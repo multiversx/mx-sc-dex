@@ -10,6 +10,9 @@ pub trait RedistributeRewardsModule:
     + crate::events::FeesCollectorEventsModule
     + week_timekeeping::WeekTimekeepingModule
     + multiversx_sc_modules::only_admin::OnlyAdminModule
+    + crate::external_sc_interactions::router::RouterInteractionsModule
+    + energy_query::EnergyQueryModule
+    + utils::UtilsModule
 {
     #[only_admin]
     #[endpoint(redistributeRewards)]

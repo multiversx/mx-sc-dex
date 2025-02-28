@@ -1,11 +1,14 @@
 #![no_std]
 
+use multiversx_sc::storage::StorageKey;
+
 multiversx_sc::imports!();
 
 pub mod additional_locked_tokens;
 pub mod claim;
 pub mod config;
 pub mod events;
+pub mod external_sc_interactions;
 pub mod fees_accumulation;
 pub mod redistribute_rewards;
 
@@ -29,26 +32,26 @@ pub trait FeesCollector:
     + multiversx_sc_modules::only_admin::OnlyAdminModule
     + claim::ClaimModule
     + redistribute_rewards::RedistributeRewardsModule
+    + external_sc_interactions::router::RouterInteractionsModule
 {
+    /// Base token burn percent is between 0 (0%) and 10_000 (100%)
     #[init]
     fn init(
         &self,
-        locked_token_id: TokenIdentifier,
         energy_factory_address: ManagedAddress,
+        router_address: ManagedAddress,
+        base_token_burn_percent: u64,
         admins: MultiValueEncoded<ManagedAddress>,
     ) {
-        self.require_valid_token_id(&locked_token_id);
-        self.require_sc_address(&energy_factory_address);
+        self.set_energy_factory_address(energy_factory_address);
+        self.set_router_address(router_address);
+        self.set_base_token_burn_percent(base_token_burn_percent);
 
         let current_epoch = self.blockchain().get_block_epoch();
         self.first_week_start_epoch().set(current_epoch);
 
-        let mut tokens = MultiValueEncoded::new();
-        tokens.push(locked_token_id.clone());
-        self.add_known_tokens(tokens);
-
-        self.locked_token_id().set(locked_token_id);
-        self.energy_factory_address().set(energy_factory_address);
+        let locked_token_id = self.get_locked_token_id();
+        self.add_known_token(&locked_token_id);
 
         for admin in admins {
             self.add_admin(admin);
@@ -56,5 +59,10 @@ pub trait FeesCollector:
     }
 
     #[upgrade]
-    fn upgrade(&self) {}
+    fn upgrade(&self) {
+        let mut mapper = UnorderedSetMapper::<Self::Api, ManagedAddress>::new(StorageKey::new(
+            b"knownContracts",
+        ));
+        mapper.clear();
+    }
 }
